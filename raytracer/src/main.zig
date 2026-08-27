@@ -3,8 +3,8 @@ const rl = @import("raylib");
 
 const Vector3 = rl.Vector3;
 
-const canvas_width = 800;
-const canvas_height = 450;
+const canvas_width = 600;
+const canvas_height = 600;
 
 const viewport_width: f32 = 1;
 const viewport_height: f32 = 1;
@@ -27,6 +27,10 @@ const Sphere = struct {
 
 const Scene = struct {
     spheres: std.ArrayList(Sphere) = .empty,
+
+    fn deinit(self: *Scene, allocator: std.mem.Allocator) void {
+        self.spheres.clearAndFree(allocator);
+    }
 };
 
 const Canvas = struct {
@@ -50,7 +54,7 @@ const Canvas = struct {
     fn pixel(point: Point(usize)) usize {
         if (point.x < 0 or point.y < 0) return 0;
 
-        return point.y * canvas_width + point.x;
+        return (canvas_height - 1 - point.y) * canvas_width + point.x;
     }
 
     fn screen(x: i32, y: i32) Point(usize) {
@@ -71,7 +75,7 @@ const Canvas = struct {
 };
 
 
-pub fn main() anyerror!void {
+pub fn main(init: std.process.Init) anyerror!void {
     rl.initWindow(canvas_width, canvas_height, "Raytracer");
     defer rl.closeWindow();
 
@@ -82,7 +86,24 @@ pub fn main() anyerror!void {
 
     const origin = Vector3.zero();
 
-    const scene = Scene{};
+    var scene = Scene{};
+    defer scene.deinit(init.gpa);
+
+    try scene.spheres.append(init.gpa, Sphere {
+        .center = rl.Vector3.init(0, -1, 3),
+        .radius = 1,
+        .color = .red,
+    });
+    try scene.spheres.append(init.gpa, Sphere {
+        .center = rl.Vector3.init(2, 0, 4),
+        .radius = 1,
+        .color = .blue,
+    });
+    try scene.spheres.append(init.gpa, Sphere {
+        .center = rl.Vector3.init(-2, 0, 4),
+        .radius = 1,
+        .color = .green,
+    });
 
     while (!rl.windowShouldClose()) {
 
@@ -94,6 +115,9 @@ pub fn main() anyerror!void {
             var y: i32 = -canvas_height / 2;
             while (y < canvas_height / 2) : (y += 1) {
                 const ray = viewport(x, y);
+
+                // std.debug.print("{} - {} - {}\n", .{ray.x, ray.y, ray.z});
+
                 const color = traceRay(&scene, origin, ray, viewport_distance, std.math.floatMax(f32));
                 canvas.putPixel(x, y, color);
             }
