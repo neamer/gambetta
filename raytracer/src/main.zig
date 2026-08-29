@@ -1,128 +1,41 @@
 const std = @import("std");
 const rl = @import("raylib");
 
+const constants = @import("constants.zig");
+const Canvas = @import("canvas.zig").Canvas;
+const Scene = @import("scene.zig").Scene;
+const Sphere = @import("scene.zig").Sphere;
+
 const Vector3 = rl.Vector3;
 
-const canvas_width = 600;
-const canvas_height = 600;
-
-const viewport_width: f32 = 1;
-const viewport_height: f32 = 1;
-const viewport_distance: f32 = 1;
-
-const bg_color = rl.Color.init(20, 20, 20, 255);
-
-pub fn Point(comptime T: type) type {
-    return struct {
-        x: T,
-        y: T,
-    };
-}
-
-const Sphere = struct {
-    center: Vector3,
-    radius: f32,
-    color: rl.Color,
-};
-
-const Scene = struct {
-    spheres: std.ArrayList(Sphere) = .empty,
-
-    fn deinit(self: *Scene, allocator: std.mem.Allocator) void {
-        self.spheres.clearAndFree(allocator);
-    }
-};
-
-const Canvas = struct {
-    texture: rl.Texture2D,
-    pixels: [canvas_width * canvas_height]rl.Color = @splat(rl.Color.white),
-
-    fn init() !Canvas {
-        const img = rl.genImageColor(canvas_width, canvas_height, .black);
-        const texture = try rl.loadTextureFromImage(img);
-        rl.unloadImage(img);
-
-        return Canvas {
-            .texture = texture,
-        };
-    }
-
-    fn deinit(self: *Canvas) void {
-        rl.unloadTexture(self.texture);
-    }
-
-    fn pixel(point: Point(usize)) usize {
-        if (point.x < 0 or point.y < 0) return 0;
-
-        return (canvas_height - 1 - point.y) * canvas_width + point.x;
-    }
-
-    fn screen(x: i32, y: i32) Point(usize) {
-        return Point(usize) {
-            .x = @intCast(std.math.clamp(canvas_width / 2 + x, 0, canvas_width)),
-            .y = @intCast(std.math.clamp(canvas_height / 2 + y, 0, canvas_height)),
-        };
-    }
-
-    fn putPixel(self: *Canvas, x: i32, y: i32, color: rl.Color) void {
-        self.pixels[pixel(screen(x, y))] = color;
-    }
-
-    fn draw(self: *Canvas) void {
-        rl.updateTexture(self.texture, &self.pixels);
-        rl.drawTexture(self.texture, 0, 0, .white);
-    }
-};
-
-
 pub fn main(init: std.process.Init) anyerror!void {
-    rl.initWindow(canvas_width, canvas_height, "Raytracer");
+    rl.initWindow(constants.canvas_width, constants.canvas_height, "Raytracer");
     defer rl.closeWindow();
 
     rl.setTargetFPS(60);
 
-    var canvas: Canvas = try .init();
-    defer canvas.deinit();
+    var canvas: Canvas = try .init(init.gpa);
+    defer canvas.deinit(init.gpa);
 
     const origin = Vector3.zero();
 
     var scene = Scene{};
+    try scene.default(init.gpa);
     defer scene.deinit(init.gpa);
 
-    try scene.spheres.append(init.gpa, Sphere {
-        .center = rl.Vector3.init(0, -1, 3),
-        .radius = 1,
-        .color = .red,
-    });
-    try scene.spheres.append(init.gpa, Sphere {
-        .center = rl.Vector3.init(2, 0, 4),
-        .radius = 1,
-        .color = .blue,
-    });
-    try scene.spheres.append(init.gpa, Sphere {
-        .center = rl.Vector3.init(-2, 0, 4),
-        .radius = 1,
-        .color = .green,
-    });
-
     while (!rl.windowShouldClose()) {
-
-        rl.beginDrawing();
-        defer rl.endDrawing();
-
-        var x: i32 = -canvas_width / 2;
-        while (x < canvas_width / 2) : (x += 1) {
-            var y: i32 = -canvas_height / 2;
-            while (y < canvas_height / 2) : (y += 1) {
+        var x: i32 = -constants.canvas_width / 2;
+        while (x < constants.canvas_width / 2) : (x += 1) {
+            var y: i32 = -constants.canvas_height / 2;
+            while (y < constants.canvas_height / 2) : (y += 1) {
                 const ray = viewport(x, y);
-
-                // std.debug.print("{} - {} - {}\n", .{ray.x, ray.y, ray.z});
-
-                const color = traceRay(&scene, origin, ray, viewport_distance, std.math.floatMax(f32));
+                const color = traceRay(&scene, origin, ray, constants.viewport_distance, std.math.floatMax(f32));
                 canvas.putPixel(x, y, color);
             }
         }
 
+        rl.beginDrawing();
+        defer rl.endDrawing();
         canvas.draw();
     }
 }
@@ -130,9 +43,9 @@ pub fn main(init: std.process.Init) anyerror!void {
 
 fn viewport(x: i32, y: i32) Vector3 {
     return Vector3 {
-        .x = @as(f32, @floatFromInt(x)) * viewport_width / canvas_width,
-        .y = @as(f32, @floatFromInt(y)) * viewport_height / canvas_height,
-        .z = viewport_distance,
+        .x = @as(f32, @floatFromInt(x)) * constants.viewport_width / constants.canvas_width,
+        .y = @as(f32, @floatFromInt(y)) * constants.viewport_height / constants.canvas_height,
+        .z = constants.viewport_distance,
     };
 }
 
@@ -156,10 +69,22 @@ fn traceRay(scene: *const Scene, origin: Vector3, ray: Vector3, t_min: f32, t_ma
     }
 
     if (closest_sphere == null) {
-        return bg_color;
+        return constants.bg_color;
     }
 
-    return closest_sphere.?.color;
+    const position = Vector3.add(origin, Vector3.scale(ray, closest_t));
+    var normal = Vector3.subtract(position, closest_sphere.?.center);
+    normal = Vector3.scale(normal, 1 / Vector3.length(normal));
+    return multiplyColor(closest_sphere.?.color, computeLighting(scene, position, normal));
+}
+
+fn multiplyColor(color: rl.Color, scalar: f32) rl.Color {
+    return .{
+        .r = std.math.clamp(@as(u8, @intFromFloat(color.r * scalar)), 0, 255),
+        .g = std.math.clamp(@as(u8, @intFromFloat(color.g * scalar)), 0, 255),
+        .b = std.math.clamp(@as(u8, @intFromFloat(color.b * scalar)), 0, 255),
+        .a = color.a,
+    };
 }
 
 fn intersectRaySphere(origin: Vector3, ray: Vector3, sphere: Sphere) struct { f32, f32 } {
@@ -184,4 +109,31 @@ fn intersectRaySphere(origin: Vector3, ray: Vector3, sphere: Sphere) struct { f3
         (-b + std.math.sqrt(discriminant)) / (2 * a),
         (-b - std.math.sqrt(discriminant)) / (2 * a),
     };
+}
+
+fn computeLighting(scene: *const Scene, position: Vector3, normal: Vector3) f32 {
+    var i: f32 = 0;
+
+    for (scene.lights.items) |light| {
+        switch (light.kind) {
+            .ambient => { i += light.intensity; },
+            .point, .directional => {
+                var L: Vector3 = undefined;
+
+                switch (light.kind) {
+                    .point => { L = Vector3.subtract(light.kind.point.position, position); },
+                    .directional => { L = light.kind.directional.direction; },
+                    else => unreachable,
+                }
+
+                const n_dot_l = Vector3.dotProduct(normal, L);
+
+                if (n_dot_l > 0) {
+                    i += light.intensity * n_dot_l / (Vector3.length(normal) * Vector3.length(L));
+                }
+            }
+        }
+    }
+
+    return i;
 }
