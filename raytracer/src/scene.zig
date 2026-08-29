@@ -24,6 +24,7 @@ pub const Sphere = struct {
     center: Vector3,
     radius: f32,
     color: rl.Color,
+    specular: f32,
 };
 
 pub const Scene = struct {
@@ -34,22 +35,26 @@ pub const Scene = struct {
         try self.spheres.append(allocator, .{
             .center = Vector3.init(0, -1, 3),
             .radius = 1,
-            .color = .red
+            .color = .red,
+            .specular = 500,
         });
         try self.spheres.append(allocator, .{
             .center = Vector3.init(2, 0, 4),
             .radius = 1,
             .color = .blue,
+            .specular = 500,
         });
         try self.spheres.append(allocator, .{
             .center = Vector3.init(-2, 0, 4),
             .radius = 1,
             .color = .green,
+            .specular = 10,
         });
         try self.spheres.append(allocator, .{
             .center = Vector3.init(0, -5001, 0),
             .radius = 5000,
             .color = .yellow,
+            .specular = 1000,
         });
 
         try self.lights.append(allocator, .{

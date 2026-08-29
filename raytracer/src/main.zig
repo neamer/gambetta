@@ -40,7 +40,6 @@ pub fn main(init: std.process.Init) anyerror!void {
     }
 }
 
-
 fn viewport(x: i32, y: i32) Vector3 {
     return Vector3 {
         .x = @as(f32, @floatFromInt(x)) * constants.viewport_width / constants.canvas_width,
@@ -75,16 +74,21 @@ fn traceRay(scene: *const Scene, origin: Vector3, ray: Vector3, t_min: f32, t_ma
     const position = Vector3.add(origin, Vector3.scale(ray, closest_t));
     var normal = Vector3.subtract(position, closest_sphere.?.center);
     normal = Vector3.scale(normal, 1 / Vector3.length(normal));
-    return multiplyColor(closest_sphere.?.color, computeLighting(scene, position, normal));
+    return multiplyColor(closest_sphere.?.color, computeLighting(scene, position, normal, Vector3.negate(ray), closest_sphere.?.specular));
 }
 
 fn multiplyColor(color: rl.Color, scalar: f32) rl.Color {
     return .{
-        .r = std.math.clamp(@as(u8, @intFromFloat(color.r * scalar)), 0, 255),
-        .g = std.math.clamp(@as(u8, @intFromFloat(color.g * scalar)), 0, 255),
-        .b = std.math.clamp(@as(u8, @intFromFloat(color.b * scalar)), 0, 255),
+        .r = scaleChannel(color.r, scalar),
+        .g = scaleChannel(color.g, scalar),
+        .b = scaleChannel(color.b, scalar),
         .a = color.a,
     };
+}
+
+fn scaleChannel(channel: u8, scalar: f32) u8 {
+    const scaled = @as(f32, @floatFromInt(channel)) * scalar;
+    return @intFromFloat(std.math.clamp(scaled, 0, 255));
 }
 
 fn intersectRaySphere(origin: Vector3, ray: Vector3, sphere: Sphere) struct { f32, f32 } {
@@ -111,7 +115,7 @@ fn intersectRaySphere(origin: Vector3, ray: Vector3, sphere: Sphere) struct { f3
     };
 }
 
-fn computeLighting(scene: *const Scene, position: Vector3, normal: Vector3) f32 {
+fn computeLighting(scene: *const Scene, position: Vector3, normal: Vector3, v_direction: Vector3, specular_ex: f32) f32 {
     var i: f32 = 0;
 
     for (scene.lights.items) |light| {
@@ -126,10 +130,20 @@ fn computeLighting(scene: *const Scene, position: Vector3, normal: Vector3) f32 
                     else => unreachable,
                 }
 
+                // diffuse
                 const n_dot_l = Vector3.dotProduct(normal, L);
-
                 if (n_dot_l > 0) {
                     i += light.intensity * n_dot_l / (Vector3.length(normal) * Vector3.length(L));
+                }
+
+                // specular
+                if (specular_ex != -1) {
+                    const reflection_direction = Vector3.subtract(Vector3.scale(normal, 2 * Vector3.dotProduct(normal, L)), L);
+                    const r_dot_v = Vector3.dotProduct(reflection_direction, v_direction);
+
+                    if (r_dot_v > 0) {
+                        i += light.intensity * std.math.pow(f32, r_dot_v / (Vector3.length(reflection_direction) * Vector3.length(v_direction)), specular_ex);
+                    }
                 }
             }
         }
