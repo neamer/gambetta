@@ -57,18 +57,13 @@ pub const Scene = struct {
             .specular = 1000,
         });
 
-        try self.lights.append(allocator, .{
-            .intensity = 0.2,
-            .kind = .{ .ambient = {} }
-        });
-        try self.lights.append(allocator, .{
-            .intensity = 0.6,
-            .kind = .{ .point = .{ .position = Vector3.init(2, 1, 0), } }
-        });
-        try self.lights.append(allocator, .{
-            .intensity = 0.2,
-            .kind = .{ .directional = .{ .direction = Vector3.init(1, 4, 4), } }
-        });
+        try self.lights.append(allocator, .{ .intensity = 0.2, .kind = .{ .ambient = {} } });
+        try self.lights.append(allocator, .{ .intensity = 0.6, .kind = .{ .point = .{
+            .position = Vector3.init(2, 1, 0),
+        } } });
+        try self.lights.append(allocator, .{ .intensity = 0.2, .kind = .{ .directional = .{
+            .direction = Vector3.init(1, 4, 4),
+        } } });
     }
 
     pub fn deinit(self: *Scene, allocator: std.mem.Allocator) void {
@@ -76,4 +71,3 @@ pub const Scene = struct {
         self.lights.clearAndFree(allocator);
     }
 };
-

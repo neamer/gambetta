@@ -41,15 +41,14 @@ pub fn main(init: std.process.Init) anyerror!void {
 }
 
 fn viewport(x: i32, y: i32) Vector3 {
-    return Vector3 {
+    return Vector3{
         .x = @as(f32, @floatFromInt(x)) * constants.viewport_width / constants.canvas_width,
         .y = @as(f32, @floatFromInt(y)) * constants.viewport_height / constants.canvas_height,
         .z = constants.viewport_distance,
     };
 }
 
-fn traceRay(scene: *const Scene, origin: Vector3, ray: Vector3, t_min: f32, t_max: f32) rl.Color {
-
+fn closestIntersection(scene: *const Scene, origin: Vector3, ray: Vector3, t_min: f32, t_max: f32) struct { ?Sphere, f32 } {
     var closest_t: f32 = std.math.floatMax(f32);
     var closest_sphere: ?Sphere = null;
 
@@ -67,14 +66,22 @@ fn traceRay(scene: *const Scene, origin: Vector3, ray: Vector3, t_min: f32, t_ma
         }
     }
 
+    return .{ closest_sphere, closest_t };
+}
+
+fn traceRay(scene: *const Scene, origin: Vector3, ray: Vector3, t_min: f32, t_max: f32) rl.Color {
+    const closest_sphere, const closest_t = closestIntersection(scene, origin, ray, t_min, t_max);
+
     if (closest_sphere == null) {
         return constants.bg_color;
     }
 
     const position = Vector3.add(origin, Vector3.scale(ray, closest_t));
-    var normal = Vector3.subtract(position, closest_sphere.?.center);
-    normal = Vector3.scale(normal, 1 / Vector3.length(normal));
-    return multiplyColor(closest_sphere.?.color, computeLighting(scene, position, normal, Vector3.negate(ray), closest_sphere.?.specular));
+    const normal = Vector3.normalize(Vector3.subtract(position, closest_sphere.?.center));
+    return multiplyColor(
+        closest_sphere.?.color,
+        computeLighting(scene, position, normal, Vector3.negate(ray), closest_sphere.?.specular)
+    );
 }
 
 fn multiplyColor(color: rl.Color, scalar: f32) rl.Color {
@@ -92,15 +99,14 @@ fn scaleChannel(channel: u8, scalar: f32) u8 {
 }
 
 fn intersectRaySphere(origin: Vector3, ray: Vector3, sphere: Sphere) struct { f32, f32 } {
-
     const r = sphere.radius;
-    const CO = rl.math.vector3Subtract(origin, sphere.center);
+    const CO = Vector3.subtract(origin, sphere.center);
 
-    const a = rl.math.vector3DotProduct(ray, ray);
-    const b = 2 * rl.math.vector3DotProduct(CO, ray);
-    const c = rl.math.vector3DotProduct(CO, CO) - r * r;
+    const a = Vector3.dotProduct(ray, ray);
+    const b = 2 * Vector3.dotProduct(CO, ray);
+    const c = Vector3.dotProduct(CO, CO) - r * r;
 
-    const discriminant = b*b - 4*a*c;
+    const discriminant = b * b - 4 * a * c;
 
     if (discriminant < 0) {
         return .{
@@ -120,14 +126,29 @@ fn computeLighting(scene: *const Scene, position: Vector3, normal: Vector3, v_di
 
     for (scene.lights.items) |light| {
         switch (light.kind) {
-            .ambient => { i += light.intensity; },
+            .ambient => {
+                i += light.intensity;
+            },
             .point, .directional => {
                 var L: Vector3 = undefined;
+                var t_max: f32 = undefined;
 
                 switch (light.kind) {
-                    .point => { L = Vector3.subtract(light.kind.point.position, position); },
-                    .directional => { L = light.kind.directional.direction; },
+                    .point => {
+                        L = Vector3.subtract(light.kind.point.position, position);
+                        t_max = 1;
+                    },
+                    .directional => {
+                        L = light.kind.directional.direction;
+                        t_max = std.math.floatMax(f32);
+                    },
                     else => unreachable,
+                }
+
+                // shadows
+                const shadow_sphere, _ = closestIntersection(scene, position, L, 0.001, t_max);
+                if (shadow_sphere != null) {
+                    continue;
                 }
 
                 // diffuse
@@ -142,10 +163,11 @@ fn computeLighting(scene: *const Scene, position: Vector3, normal: Vector3, v_di
                     const r_dot_v = Vector3.dotProduct(reflection_direction, v_direction);
 
                     if (r_dot_v > 0) {
-                        i += light.intensity * std.math.pow(f32, r_dot_v / (Vector3.length(reflection_direction) * Vector3.length(v_direction)), specular_ex);
+                        i += light.intensity *
+                            std.math.pow(f32, r_dot_v / (Vector3.length(reflection_direction) * Vector3.length(v_direction)), specular_ex);
                     }
                 }
-            }
+            },
         }
     }
 

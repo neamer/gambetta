@@ -24,7 +24,7 @@ pub const Canvas = struct {
 
         rl.unloadImage(img);
 
-        return Canvas {
+        return Canvas{
             .texture = texture,
             .pixels = pixels,
         };
@@ -42,7 +42,7 @@ pub const Canvas = struct {
     }
 
     fn screen(x: i32, y: i32) Point(usize) {
-        return Point(usize) {
+        return Point(usize){
             .x = @intCast(std.math.clamp(constants.canvas_width / 2 + x, 0, constants.canvas_width)),
             .y = @intCast(std.math.clamp(constants.canvas_height / 2 + y, 0, constants.canvas_height)),
         };
@@ -57,4 +57,3 @@ pub const Canvas = struct {
         rl.drawTexture(self.texture, 0, 0, .white);
     }
 };
-

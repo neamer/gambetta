@@ -8,4 +8,3 @@ pub const viewport_height: f32 = 1;
 pub const viewport_distance: f32 = 1;
 
 pub const bg_color = rl.Color.init(20, 20, 20, 255);
-
