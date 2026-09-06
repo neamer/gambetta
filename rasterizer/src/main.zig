@@ -1,6 +1,7 @@
 const std = @import("std");
 const rl = @import("raylib");
 
+const allocator = @import("gpa.zig").allocator;
 const constants = @import("constants.zig");
 const Canvas = @import("canvas.zig").Canvas;
 
@@ -29,7 +30,8 @@ pub fn main(init: std.process.Init) anyerror!void {
     //     }
     // }
 
-    drawLine(&canvas, .{ .x = -200, .y = -100 }, .{ .x = 250, .y = 120 }, .black);
+    try drawLine(&canvas, .{ .x = -200, .y = -100 }, .{ .x = 250, .y = 120 }, .black);
+    try drawLine(&canvas, .{ .x = -50, .y = -200 }, .{ .x = 60, .y = 240 }, .black);
 
     while (!rl.windowShouldClose()) {
         rl.beginDrawing();
@@ -39,18 +41,62 @@ pub fn main(init: std.process.Init) anyerror!void {
     }
 }
 
-fn drawLine(canvas: *Canvas, point0: Vector2, point1: Vector2, color: Color) void {
+fn interpolate(indep_start: i32, dep_start: f32, indep_end: i32, dep_end: f32) !std.ArrayList(f32) {
 
-    const from = if (point0.x < point1.x) point0 else point1;
-    const to = if (point0.x < point1.x) point1 else point0;
+    var values: std.ArrayList(f32) = .empty;
 
-    const a = (to.y - from.y) / (to.x - from.x);
-    var y = from.y;
+    if (indep_start == indep_end) {
+        try values.append(allocator, dep_start);
+        return values;
+    }
 
-    var x = from.x;
-    while (x <= (to.x + 1)) : (x += 1) {
-        canvas.putPixel(@intFromFloat(x), @intFromFloat(y), color);
-        y = y + a;
+    const slope = (dep_end - dep_start) / @as(f32, @floatFromInt(indep_end - indep_start));
+    var dependant = dep_start;
+ 
+    var i = indep_start;
+    while (i <= indep_end): (i += 1) {
+        try values.append(allocator, dependant);
+        dependant += slope;
+    }
+
+    return values;
+}
+
+fn drawLine(canvas: *Canvas, point0: Vector2, point1: Vector2, color: Color) !void {
+
+    const dx = point1.x - point0.x;
+    const dy = point1.y - point0.y;
+
+    if (@abs(dx) > @abs(dy)) {
+        const from = if (point0.x < point1.x) point0 else point1;
+        const to = if (point0.x < point1.x) point1 else point0;
+
+        var ys = try interpolate(@intFromFloat(from.x), from.y, @intFromFloat(to.x), to.y);
+        defer ys.deinit(allocator);
+
+        var x = from.x;
+        while (x <= to.x) : (x += 1) {
+            canvas.putPixel(
+                @intFromFloat(x),
+                @intFromFloat(@round(ys.items[@intFromFloat(x - from.x)])),
+                color
+            );
+        }
+    } else {
+        const from = if (point0.y < point1.y) point0 else point1;
+        const to = if (point0.y < point1.y) point1 else point0;
+
+        var xs = try interpolate(@intFromFloat(from.y), from.x, @intFromFloat(to.y), to.x);
+        defer xs.deinit(allocator);
+
+        var y = from.y;
+        while (y <= (to.y)) : (y += 1) {
+            canvas.putPixel(
+                @intFromFloat(@round(xs.items[@intFromFloat(y - from.y)])),
+                @intFromFloat(y),
+                color
+            );
+        }
     }
 }
 

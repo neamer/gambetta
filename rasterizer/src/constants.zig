@@ -1,7 +1,7 @@
 const rl = @import("raylib");
 
-pub const canvas_width = 800;
-pub const canvas_height = 800;
+pub const canvas_width = 600;
+pub const canvas_height = 600;
 
 pub const viewport_width: f32 = 1;
 pub const viewport_height: f32 = 1;
