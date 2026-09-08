@@ -18,7 +18,7 @@ pub const Canvas = struct {
         const img = rl.genImageColor(constants.canvas_width, constants.canvas_height, .black);
         const texture = try rl.loadTextureFromImage(img);
         const pixels = try allocator.alloc(rl.Color, constants.canvas_width * constants.canvas_height);
-        @memset(pixels, rl.Color.white);
+        @memset(pixels, constants.bg_color);
 
         rl.unloadImage(img);
 
