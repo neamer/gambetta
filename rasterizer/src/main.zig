@@ -15,20 +15,28 @@ pub fn main() anyerror!void {
     var canvas: Canvas = try .init(allocator);
     defer canvas.deinit(allocator);
 
-    try draw.filledTriangle(
-        &canvas,
-        .{ .x = -200, .y = -200 },
-        .{ .x = 50, .y = 220 },
-        .{ .x = 200, .y = 20 },
-        .red,
-    );
+    // try draw.filledTriangle(
+    //     &canvas,
+    //     .{ .x = -200, .y = -200 },
+    //     .{ .x = 50, .y = 220 },
+    //     .{ .x = 200, .y = 20 },
+    //     .red,
+    // );
+    //
+    // try draw.wireFrameTriangle(
+    //     &canvas,
+    //     .{ .x = -200, .y = -200 },
+    //     .{ .x = 50, .y = 220 },
+    //     .{ .x = 200, .y = 20 },
+    //     .white,
+    // );
 
-    try draw.wireFrameTriangle(
+    try draw.shadedTriangle(
         &canvas,
-        .{ .x = -200, .y = -200 },
-        .{ .x = 50, .y = 220 },
-        .{ .x = 200, .y = 20 },
-        .white,
+        .{ .pos = .{ .x = -200, .y = -200 }, .h = 0.2 },
+        .{ .pos = .{ .x = 50, .y = 220 }, .h = 0.0 },
+        .{ .pos = .{ .x = 200, .y = 20 }, .h = 0.8 },
+        .blue,
     );
 
     while (!rl.windowShouldClose()) {
@@ -38,5 +46,4 @@ pub fn main() anyerror!void {
         canvas.draw();
     }
 }
-
 
