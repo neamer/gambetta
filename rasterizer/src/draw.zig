@@ -154,7 +154,8 @@ pub fn shadedTriangle(canvas: *Canvas, point0_: ShadedPoint, point1_: ShadedPoin
 
         var x = x_left.items[y_diff];
         while (x <= x_right.items[y_diff]): (x += 1) {
-            const shaded_color = multiplyColor(color, h_segment.items[@round(x - x_l)]);
+            const shade = h_segment.items[@round(x - x_l)];
+            const shaded_color = multiplyColor(color, shade);
             canvas.putPixel(@round(x), @round(y), shaded_color);
         }
     }
@@ -170,6 +171,7 @@ fn multiplyColor(color: rl.Color, scalar: f32) rl.Color {
 }
 
 fn scaleChannel(channel: u8, shade: f32) u8 {
-    const t = std.math.clamp(shade, 0, 255) / 255;
+    const t = std.math.clamp(shade, 0, 1);
     return @intFromFloat(@round(@as(f32, @floatFromInt(channel)) * t));
 }
+

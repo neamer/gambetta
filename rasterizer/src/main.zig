@@ -33,9 +33,9 @@ pub fn main() anyerror!void {
 
     try draw.shadedTriangle(
         &canvas,
-        .{ .pos = .{ .x = -200, .y = -200 }, .h = 0.2 },
-        .{ .pos = .{ .x = 50, .y = 220 }, .h = 0.0 },
-        .{ .pos = .{ .x = 200, .y = 20 }, .h = 0.8 },
+        .{ .pos = .{ .x = -200, .y = -200 }, .h = 0.4 },
+        .{ .pos = .{ .x = 50, .y = 220 }, .h = 1.0 },
+        .{ .pos = .{ .x = 200, .y = 20 }, .h = 0.2 },
         .blue,
     );
 
