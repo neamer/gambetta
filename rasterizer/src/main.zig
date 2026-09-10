@@ -15,29 +15,7 @@ pub fn main() anyerror!void {
     var canvas: Canvas = try .init(allocator);
     defer canvas.deinit(allocator);
 
-    // try draw.filledTriangle(
-    //     &canvas,
-    //     .{ .x = -200, .y = -200 },
-    //     .{ .x = 50, .y = 220 },
-    //     .{ .x = 200, .y = 20 },
-    //     .red,
-    // );
-    //
-    // try draw.wireFrameTriangle(
-    //     &canvas,
-    //     .{ .x = -200, .y = -200 },
-    //     .{ .x = 50, .y = 220 },
-    //     .{ .x = 200, .y = 20 },
-    //     .white,
-    // );
-
-    try draw.shadedTriangle(
-        &canvas,
-        .{ .pos = .{ .x = -200, .y = -200 }, .h = 0.4 },
-        .{ .pos = .{ .x = 50, .y = 220 }, .h = 1.0 },
-        .{ .pos = .{ .x = 200, .y = 20 }, .h = 0.2 },
-        .blue,
-    );
+    try draw.cube(&canvas);
 
     while (!rl.windowShouldClose()) {
         rl.beginDrawing();
