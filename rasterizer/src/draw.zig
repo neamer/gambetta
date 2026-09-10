@@ -3,6 +3,7 @@ const rl = @import("raylib");
 
 const allocator = @import("gpa.zig").allocator;
 const math = @import("math.zig");
+const render = @import("render.zig");
 const constants = @import("constants.zig");
 const Canvas = @import("canvas.zig").Canvas;
 
@@ -176,20 +177,6 @@ fn scaleChannel(channel: u8, shade: f32) u8 {
     return @intFromFloat(@round(@as(f32, @floatFromInt(channel)) * t));
 }
 
-fn viewportToCanvas(pos: Vector2) Vector2 {
-    return .{
-        .x = pos.x * constants.canvas_width / constants.viewport_width,
-        .y = pos.y * constants.canvas_height / constants.viewport_height,
-    };
-}
-
-fn project(pos: Vector3) Vector2 {
-    return viewportToCanvas(.{
-        .x = pos.x * constants.viewport_distance / pos.z,
-        .y = pos.y * constants.viewport_distance / pos.z,
-    });
-}
-
 pub fn cube(canvas: *Canvas) !void {
     // The four "front" vertices
     const vaf = Vector3{ .x = -2, .y = -0.5, .z = 5 };
@@ -204,20 +191,21 @@ pub fn cube(canvas: *Canvas) !void {
     const vdb = Vector3{ .x = -1, .y = -0.5, .z = 6 };
 
     // The front face
-    try line(canvas, project(vaf), project(vbf), .blue);
-    try line(canvas, project(vbf), project(vcf), .blue);
-    try line(canvas, project(vcf), project(vdf), .blue);
-    try line(canvas, project(vdf), project(vaf), .blue);
+    try line(canvas, render.project(vaf), render.project(vbf), .blue);
+    try line(canvas, render.project(vbf), render.project(vcf), .blue);
+    try line(canvas, render.project(vcf), render.project(vdf), .blue);
+    try line(canvas, render.project(vdf), render.project(vaf), .blue);
 
     // The back face
-    try line(canvas, project(vab), project(vbb), .red);
-    try line(canvas, project(vbb), project(vcb), .red);
-    try line(canvas, project(vcb), project(vdb), .red);
-    try line(canvas, project(vdb), project(vab), .red);
+    try line(canvas, render.project(vab), render.project(vbb), .red);
+    try line(canvas, render.project(vbb), render.project(vcb), .red);
+    try line(canvas, render.project(vcb), render.project(vdb), .red);
+    try line(canvas, render.project(vdb), render.project(vab), .red);
 
     // The front-to-back edges
-    try line(canvas, project(vaf), project(vab), .green);
-    try line(canvas, project(vbf), project(vbb), .green);
-    try line(canvas, project(vcf), project(vcb), .green);
-    try line(canvas, project(vdf), project(vdb), .green);
+    try line(canvas, render.project(vaf), render.project(vab), .green);
+    try line(canvas, render.project(vbf), render.project(vbb), .green);
+    try line(canvas, render.project(vcf), render.project(vcb), .green);
+    try line(canvas, render.project(vdf), render.project(vdb), .green);
 }
+
