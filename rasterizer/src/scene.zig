@@ -11,25 +11,34 @@ const ArrayList = std.ArrayList;
 
 const Vector3 = rl.Vector3;
 const Vector2 = rl.Vector2;
+const Matrix = rl.Matrix;
 const Color = rl.Color;
+
+pub const Camera = struct {
+    translation: Vector3,
+    rotation: Matrix
+};
 
 pub const Scene = struct {
     objects: ArrayList(Object),
+    camera: Camera,
 
     pub fn init() Scene {
         return .{
+            .camera = .{
+                .translation = Vector3.init(0, 0, 0),
+                .rotation = Matrix.rotateX(0),
+            },
             .objects = .empty
         };
     }
 
     pub fn deinit(self: *Scene) void {
-        for(self.objects.items) |*object| {
-            object.deinit();
-        }
         self.objects.deinit(allocator);
     }
 
     pub fn firstScene(self: *Scene) !void {
+
         const vertices = [_]Vector3{
             .{ .x = 1, .y = 1, .z = 1 },
             .{ .x = -1, .y = 1, .z = 1 },
@@ -58,7 +67,23 @@ pub const Scene = struct {
 
         const cube_model = try Model.init(&vertices, &triangles);
 
-        try self.objects.append(allocator, try Object.init(cube_model, Vector3.init(-1.5, 0, 7)));
-        try self.objects.append(allocator, try Object.init(cube_model, Vector3.init(1.2, 1, 6)));
+        try self.objects.append(
+            allocator,
+            Object.init(
+                cube_model,
+                Vector3.init(-1.5, 0, 7),
+                Vector3.init(1, 2, 1),
+                Matrix.rotateX(0),
+            )
+        );
+        try self.objects.append(
+            allocator,
+            Object.init(
+                cube_model,
+                Vector3.init(1.2, 0, 6),
+                Vector3.init(1, 0.5, 1),
+                Matrix.rotateX(15),
+            )
+        );
     }
 };

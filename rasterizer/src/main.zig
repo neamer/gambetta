@@ -20,9 +20,7 @@ pub fn main() anyerror!void {
     try scene.firstScene();
     defer scene.deinit();
 
-    for (scene.objects.items) |object| {
-        try render.object(&canvas, object.vertices, object.model.triangles);
-    }
+    try render.renderScene(&scene, &canvas);
 
     while (!rl.windowShouldClose()) {
         rl.beginDrawing();

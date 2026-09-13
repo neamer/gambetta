@@ -19,7 +19,7 @@ pub fn line(canvas: *Canvas, point0: Vector2, point1: Vector2, color: Color) !vo
         const from = if (point0.x < point1.x) point0 else point1;
         const to = if (point0.x < point1.x) point1 else point0;
 
-        var ys = try math.interpolate(@intFromFloat(from.x), from.y, @intFromFloat(to.x), to.y);
+        var ys = try math.interpolate(@round(from.x), from.y, @round(to.x), to.y);
         defer ys.deinit(allocator);
 
         var x = from.x;
@@ -30,7 +30,7 @@ pub fn line(canvas: *Canvas, point0: Vector2, point1: Vector2, color: Color) !vo
         const from = if (point0.y < point1.y) point0 else point1;
         const to = if (point0.y < point1.y) point1 else point0;
 
-        var xs = try math.interpolate(@intFromFloat(from.y), from.x, @intFromFloat(to.y), to.x);
+        var xs = try math.interpolate(@round(from.y), from.x, @round(to.y), to.x);
         defer xs.deinit(allocator);
 
         var y = from.y;

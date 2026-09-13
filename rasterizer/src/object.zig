@@ -10,39 +10,29 @@ const ArrayList = std.ArrayList;
 
 const Vector3 = rl.Vector3;
 const Vector2 = rl.Vector2;
+const Matrix = rl.Matrix;
 const Color = rl.Color;
 
 pub const Object = struct {
     model: Model,
+
+    scale: Vector3 = Vector3.one(),
+    rotation: Matrix,
     translation: Vector3,
-    vertices: ArrayList(Vector3),
 
-    pub fn init(model: Model, translation: Vector3) !Object {
-        var vertices: ArrayList(Vector3) = .empty;
-        try vertices.appendSlice(allocator, model.vertices.items);
-
-        var result: Object = .{
+    pub fn init(model: Model, translation: Vector3, scale: Vector3, rotation: Matrix) Object {
+        return .{
             .model = model,
+            .scale = scale,
+            .rotation = rotation,
             .translation = translation,
-            .vertices = vertices,
         };
-
-        result.transform();
-
-        return result;
     }
 
-    pub fn deinit(self: *Object) void {
-        self.vertices.deinit(allocator);
-    }
+    pub fn transform(self: Object) Matrix {
+        const s_matrix = Matrix.scale(self.scale.x, self.scale.y, self.scale.z);
+        const t_matrix = Matrix.translate(self.translation.x, self.translation.y, self.translation.z);
 
-    fn translate(self: *Object) void {
-        for (self.vertices.items, 0..) |v, i| {
-            self.vertices.items[i] = Vector3.add(v, self.translation);
-        }
-    }
-
-    pub fn transform(self: *Object) void {
-        self.translate();
+        return Matrix.multiply(Matrix.multiply(s_matrix, self.rotation), t_matrix);
     }
 };
