@@ -3,8 +3,9 @@ const rl = @import("raylib");
 
 const allocator = @import("gpa.zig").allocator;
 const constants = @import("constants.zig");
+const Model = @import("model.zig").Model;
+const Tri = @import("model.zig").Tri;
 const Object = @import("object.zig").Object;
-const Tri = @import("object.zig").Tri;
 
 const ArrayList = std.ArrayList;
 
@@ -55,8 +56,9 @@ pub const Scene = struct {
             .init(2, 7, 3, .sky_blue),
         };
 
-        var cube = try Object.init(&vertices, &triangles);
-        cube.translate(Vector3.init(-1.5, 0, 7));
-        try self.objects.append(allocator, cube);
+        const cube_model = try Model.init(&vertices, &triangles);
+
+        try self.objects.append(allocator, try Object.init(cube_model, Vector3.init(-1.5, 0, 7)));
+        try self.objects.append(allocator, try Object.init(cube_model, Vector3.init(1, 2, 3)));
     }
 };

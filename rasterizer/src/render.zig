@@ -4,7 +4,7 @@ const rl = @import("raylib");
 const allocator = @import("gpa.zig").allocator;
 const constants = @import("constants.zig");
 const draw = @import("draw.zig");
-const Tri = @import("object.zig").Tri;
+const Tri = @import("model.zig").Tri;
 const Canvas = @import("canvas.zig").Canvas;
 
 const ArrayList = std.ArrayList;
@@ -48,3 +48,4 @@ pub fn object(canvas: *Canvas, vertices: ArrayList(Vector3), triangles: ArrayLis
         try renderTriangle(canvas, tri, projected);
     }
 }
+

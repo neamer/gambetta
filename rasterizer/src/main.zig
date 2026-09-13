@@ -21,7 +21,7 @@ pub fn main() anyerror!void {
     defer scene.deinit();
 
     for (scene.objects.items) |object| {
-        try render.object(&canvas, object.transformed, object.triangles);
+        try render.object(&canvas, object.vertices, object.model.triangles);
     }
 
     while (!rl.windowShouldClose()) {

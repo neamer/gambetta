@@ -4,6 +4,7 @@ const rl = @import("raylib");
 const allocator = @import("gpa.zig").allocator;
 const constants = @import("constants.zig");
 const draw = @import("draw.zig");
+const Model = @import("model.zig").Model;
 
 const ArrayList = std.ArrayList;
 
@@ -11,48 +12,37 @@ const Vector3 = rl.Vector3;
 const Vector2 = rl.Vector2;
 const Color = rl.Color;
 
-pub const Tri = struct {
-    vertices: [3]usize,
-    color: Color,
-
-    pub fn init(v0: usize, v1: usize, v2: usize, color: Color) Tri {
-        return .{
-            .vertices = .{ v0, v1, v2 },
-            .color = color,
-        };
-    }
-};
-
 pub const Object = struct {
+    model: Model,
+    translation: Vector3,
     vertices: ArrayList(Vector3),
-    triangles: ArrayList(Tri),
-    transformed: ArrayList(Vector3),
 
-    pub fn init(vertices: []const Vector3, triangles: []const Tri) !Object {
-        var vertices_list: ArrayList(Vector3) = .empty;
-        var triangles_list: ArrayList(Tri) = .empty;
-        var transformed_list: ArrayList(Vector3) = .empty;
+    pub fn init(model: Model, translation: Vector3) !Object {
+        var vertices: ArrayList(Vector3) = .empty;
+        try vertices.appendSlice(allocator, model.vertices.items);
 
-        try vertices_list.appendSlice(allocator, vertices);
-        try triangles_list.appendSlice(allocator, triangles);
-        try transformed_list.appendSlice(allocator, vertices);
-
-        return .{
-            .vertices = vertices_list,
-            .triangles = triangles_list,
-            .transformed = transformed_list,
+        var result: Object = .{
+            .model = model,
+            .translation = translation,
+            .vertices = vertices,
         };
+
+        result.transform();
+
+        return result;
     }
 
     pub fn deinit(self: *Object) void {
         self.vertices.deinit(allocator);
-        self.triangles.deinit(allocator);
-        self.transformed.deinit(allocator);
     }
 
-    pub fn translate(self: *Object, vector: Vector3) void {
+    fn translate(self: *Object) void {
         for (self.vertices.items, 0..) |v, i| {
-            self.transformed.items[i] = Vector3.add(v, vector);
+            self.vertices.items[i] = Vector3.add(v, self.translation);
         }
+    }
+
+    pub fn transform(self: *Object) void {
+        self.translate();
     }
 };
