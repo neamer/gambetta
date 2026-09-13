@@ -47,7 +47,17 @@ pub const Canvas = struct {
     }
 
     pub fn putPixel(self: *Canvas, x: i32, y: i32, color: rl.Color) void {
+        if (outOfBounds(x, y)) return;
+
         self.pixels[pixel(screen(x, y))] = color;
+    }
+
+    inline fn outOfBounds(x: i32, y: i32) bool {
+        if (x > constants.canvas_width / 2 or x < -(constants.canvas_width / 2) or
+            y > (constants.canvas_height / 2 - 1) or y < -(constants.canvas_height / 2)) {
+            return true;
+        }
+        return false;
     }
 
     pub fn draw(self: *Canvas) void {

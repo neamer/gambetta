@@ -59,6 +59,6 @@ pub const Scene = struct {
         const cube_model = try Model.init(&vertices, &triangles);
 
         try self.objects.append(allocator, try Object.init(cube_model, Vector3.init(-1.5, 0, 7)));
-        try self.objects.append(allocator, try Object.init(cube_model, Vector3.init(1, 2, 3)));
+        try self.objects.append(allocator, try Object.init(cube_model, Vector3.init(1.2, 1, 6)));
     }
 };
