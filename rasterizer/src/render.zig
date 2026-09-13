@@ -4,6 +4,8 @@ const rl = @import("raylib");
 const allocator = @import("gpa.zig").allocator;
 const constants = @import("constants.zig");
 const draw = @import("draw.zig");
+const Tri = @import("object.zig").Tri;
+const Canvas = @import("canvas.zig").Canvas;
 
 const ArrayList = std.ArrayList;
 
@@ -25,20 +27,9 @@ pub fn project(pos: Vector3) Vector2 {
     });
 }
 
-pub const Tri = struct {
-    vertices: [3]usize,
-    color: Color,
-
-    pub fn init(v0: usize, v1: usize, v2: usize, color: Color) Tri {
-        return .{
-            .vertices = .{ v0, v1, v2 },
-            .color = color,
-        };
-    }
-};
-
-pub fn renderTriangle(tri: Tri, projected: ArrayList(Vector3)) void {
-    draw.wireFrameTriangle(
+pub fn renderTriangle(canvas: *Canvas, tri: Tri, projected: ArrayList(Vector2)) !void {
+    try draw.wireFrameTriangle(
+        canvas,
         projected.items[tri.vertices[0]],
         projected.items[tri.vertices[1]],
         projected.items[tri.vertices[2]],
@@ -46,14 +37,14 @@ pub fn renderTriangle(tri: Tri, projected: ArrayList(Vector3)) void {
     );
 }
 
-pub fn renderObject(vertices: ArrayList(Vector3), triangles: ArrayList(Tri)) void {
+pub fn object(canvas: *Canvas, vertices: ArrayList(Vector3), triangles: ArrayList(Tri)) !void {
     var projected: ArrayList(Vector2) = .empty;
 
     for (vertices.items) |vertex| {
-        projected.append(allocator, project(vertex));
+        try projected.append(allocator, project(vertex));
     }
 
-    for (triangles) |tri| {
-        renderTriangle(tri, projected);
+    for (triangles.items) |tri| {
+        try renderTriangle(canvas, tri, projected);
     }
 }
