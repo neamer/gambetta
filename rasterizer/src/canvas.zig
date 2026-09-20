@@ -41,9 +41,13 @@ pub const Canvas = struct {
 
     fn screen(x: i32, y: i32) Point(usize) {
         return Point(usize){
-            .x = @intCast(std.math.clamp(constants.canvas_width / 2 + x, 0, constants.canvas_width)),
-            .y = @intCast(std.math.clamp(constants.canvas_height / 2 + y, 0, constants.canvas_height)),
+            .x = @intCast(std.math.clamp(constants.canvas_width / 2 + x, 0, constants.canvas_width - 1)),
+            .y = @intCast(std.math.clamp(constants.canvas_height / 2 + y, 0, constants.canvas_height - 1)),
         };
+    }
+
+    pub fn clear(self: *Canvas) void {
+        @memset(self.pixels, constants.bg_color);
     }
 
     pub fn putPixel(self: *Canvas, x: i32, y: i32, color: rl.Color) void {
@@ -54,7 +58,7 @@ pub const Canvas = struct {
 
     inline fn outOfBounds(x: i32, y: i32) bool {
         if (x > constants.canvas_width / 2 or x < -(constants.canvas_width / 2) or
-            y > (constants.canvas_height / 2 - 1) or y < -(constants.canvas_height / 2)) {
+            y > constants.canvas_height / 2 or y < -(constants.canvas_height / 2)) {
             return true;
         }
         return false;
