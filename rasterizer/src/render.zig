@@ -4,10 +4,12 @@ const rl = @import("raylib");
 const allocator = @import("gpa.zig").allocator;
 const constants = @import("constants.zig");
 const draw = @import("draw.zig");
+const Plane = @import("math.zig").Plane;
 const Tri = @import("model.zig").Tri;
 const Canvas = @import("canvas.zig").Canvas;
 const Scene = @import("scene.zig").Scene;
 const Model = @import("model.zig").Model;
+const Object = @import("object.zig").Object;
 const Camera = @import("scene.zig").Camera;
 
 const ArrayList = std.ArrayList;
@@ -41,24 +43,11 @@ pub fn renderTriangle(canvas: *Canvas, tri: Tri, projected: ArrayList(Vector2)) 
     );
 }
 
-pub fn renderObject(canvas: *Canvas, vertices: ArrayList(Vector3), triangles: ArrayList(Tri)) !void {
+pub fn renderModel(arena: std.mem.Allocator, canvas: *Canvas, model: Model) !void {
     var projected: ArrayList(Vector2) = .empty;
-
-    for (vertices.items) |vertex| {
-        try projected.append(allocator, project(vertex));
-    }
-
-    for (triangles.items) |tri| {
-        try renderTriangle(canvas, tri, projected);
-    }
-}
-
-pub fn renderModel(canvas: *Canvas, model: Model, transform: Matrix) !void {
-    var projected: ArrayList(Vector2) = .empty;
-    defer projected.deinit(allocator);
 
     for (model.vertices.items) |vertex| {
-        try projected.append(allocator, project(Vector3.transform(vertex, transform)));
+        try projected.append(arena, project(vertex));
     }
 
     for (model.triangles.items) |tri| {
@@ -69,16 +58,123 @@ pub fn renderModel(canvas: *Canvas, model: Model, transform: Matrix) !void {
 fn cameraMatrix(camera: Camera) Matrix {
     const t = Matrix.translate(-camera.translation.x, -camera.translation.y, -camera.translation.z);
 
-    // Undo the camera translation first, then its rotation.
     return Matrix.multiply(t, Matrix.invert(camera.rotation));
 }
 
-pub fn renderScene(scene: *Scene, canvas: *Canvas) !void {
-    const m_camera = cameraMatrix(scene.camera);
+fn addVertex(arena: std.mem.Allocator, vertices: *ArrayList(Vector3), vertex: Vector3) !usize {
+    try vertices.append(arena, vertex);
+    return vertices.items.len - 1;
+}
 
-    for (scene.objects.items) |object| {
-        const h_matrix = Matrix.multiply(object.transform(), m_camera);
-        try renderModel(canvas, object.model, h_matrix);
+fn clipTriangle(
+    arena: std.mem.Allocator,
+    tri: Tri,
+    vertices: *ArrayList(Vector3),
+    plane: Plane,
+    out: *ArrayList(Tri),
+) !void {
+    var inside: [3]usize = undefined;
+    var outside: [3]usize = undefined;
+    var inside_count: usize = 0;
+    var outside_count: usize = 0;
+
+    for (0..3) |corner| {
+        if (plane.signedDistance(vertices.items[tri.vertices[corner]]) >= 0) {
+            inside[inside_count] = corner;
+            inside_count += 1;
+        } else {
+            outside[outside_count] = corner;
+            outside_count += 1;
+        }
+    }
+
+    switch (inside_count) {
+        3 => try out.append(arena, tri),
+        0 => {},
+        1 => {
+            const corner_a = inside[0];
+
+            const a = tri.vertices[corner_a];
+            const b = tri.vertices[(corner_a + 1) % 3];
+            const c = tri.vertices[(corner_a + 2) % 3];
+
+            const pos_a = vertices.items[a];
+            const pos_b = vertices.items[b];
+            const pos_c = vertices.items[c];
+
+            const b_prime = try addVertex(arena, vertices, plane.intersectSegment(pos_a, pos_b));
+            const c_prime = try addVertex(arena, vertices, plane.intersectSegment(pos_a, pos_c));
+
+            try out.append(arena, Tri.init(a, b_prime, c_prime, tri.color));
+        },
+        2 => {
+            const corner_c = outside[0];
+
+            const a = tri.vertices[(corner_c + 1) % 3];
+            const b = tri.vertices[(corner_c + 2) % 3];
+            const c = tri.vertices[corner_c];
+
+            const pos_a = vertices.items[a];
+            const pos_b = vertices.items[b];
+            const pos_c = vertices.items[c];
+
+            const a_prime = try addVertex(arena, vertices, plane.intersectSegment(pos_a, pos_c));
+            const b_prime = try addVertex(arena, vertices, plane.intersectSegment(pos_b, pos_c));
+
+            try out.append(arena, Tri.init(a, b, a_prime, tri.color));
+            try out.append(arena, Tri.init(a_prime, b, b_prime, tri.color));
+        },
+        else => unreachable,
     }
 }
 
+fn clipModelAgainstPlane(arena: std.mem.Allocator, model: *Model, plane: Plane) !void {
+    var clipped: ArrayList(Tri) = .empty;
+
+    for (model.triangles.items) |tri| {
+        try clipTriangle(arena, tri, &model.vertices, plane, &clipped);
+    }
+
+    model.triangles = clipped;
+}
+
+fn clipObject(
+    arena: std.mem.Allocator,
+    object: Object,
+    camera: Matrix,
+    planes: []const Plane,
+) !?Model {
+    const matrix = Matrix.multiply(object.transform(), camera);
+    const bounds = object.boundsInSpace(matrix);
+
+    for (planes) |plane| {
+        if (plane.signedDistance(bounds.center) < -bounds.radius) return null;
+    }
+
+    var model = try object.model.clone(arena);
+    for (model.vertices.items) |*vertex| {
+        vertex.* = Vector3.transform(vertex.*, matrix);
+    }
+
+    for (planes) |plane| {
+        if (plane.signedDistance(bounds.center) > bounds.radius) continue;
+
+        try clipModelAgainstPlane(arena, &model, plane);
+        if (model.triangles.items.len == 0) return null;
+    }
+
+    return model;
+}
+
+pub fn renderScene(scene: *Scene, canvas: *Canvas) !void {
+    var frame_arena = std.heap.ArenaAllocator.init(allocator);
+    defer frame_arena.deinit();
+    const arena = frame_arena.allocator();
+
+    const m_camera = cameraMatrix(scene.camera);
+
+    for (scene.objects.items) |object| {
+        const clipped = try clipObject(arena, object, m_camera, &constants.frustum_planes) orelse continue;
+        try renderModel(arena, canvas, clipped);
+    }
+}

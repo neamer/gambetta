@@ -33,6 +33,23 @@ pub const Scene = struct {
         };
     }
 
+    pub fn copy(self: *Scene) Scene {
+        return .{
+            .camera = self.camera,
+            .objects = .empty,
+        };
+    }
+
+    pub fn deepCopy(self: *Scene) Scene {
+        var objects: ArrayList(Object) = .empty;
+        objects.appendSlice(allocator, self.objects.items);
+
+        return .{
+            .camera = self.camera,
+            .objects = objects,
+        };
+    }
+
     pub fn deinit(self: *Scene) void {
         self.objects.deinit(allocator);
     }
