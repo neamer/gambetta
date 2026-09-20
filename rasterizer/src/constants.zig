@@ -2,8 +2,8 @@ const rl = @import("raylib");
 
 const Plane = @import("math.zig").Plane;
 
-pub const canvas_width = 600;
-pub const canvas_height = 600;
+pub const canvas_width = 900;
+pub const canvas_height = 900;
 
 pub const viewport_width: f32 = 1;
 pub const viewport_height: f32 = 1;
@@ -18,3 +18,6 @@ pub const frustum_planes = [_]Plane{
     Plane.init(.{ .x = 0, .y = viewport_distance, .z = viewport_height / 2 }, 0), // bottom
     Plane.init(.{ .x = 0, .y = -viewport_distance, .z = viewport_height / 2 }, 0), // top
 };
+
+pub const camera_speed = 2.5;
+
