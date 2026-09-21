@@ -1,6 +1,7 @@
 const rl = @import("raylib");
 
 const Plane = @import("math.zig").Plane;
+const RenderMode = @import("scene.zig").RenderMode;
 
 pub const canvas_width = 900;
 pub const canvas_height = 900;
@@ -20,4 +21,6 @@ pub const frustum_planes = [_]Plane{
 };
 
 pub const camera_speed = 2.5;
+
+pub const render_mode: RenderMode = .wireframe;
 

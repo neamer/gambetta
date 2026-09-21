@@ -11,6 +11,7 @@ const Scene = @import("scene.zig").Scene;
 const Model = @import("model.zig").Model;
 const Object = @import("object.zig").Object;
 const Camera = @import("scene.zig").Camera;
+const RenderMode = @import("scene.zig").RenderMode;
 
 const ArrayList = std.ArrayList;
 
@@ -33,17 +34,40 @@ pub fn project(pos: Vector3) Vector2 {
     });
 }
 
-pub fn renderTriangle(canvas: *Canvas, tri: Tri, projected: ArrayList(Vector2)) !void {
-    try draw.wireFrameTriangle(
-        canvas,
-        projected.items[tri.vertices[0]],
-        projected.items[tri.vertices[1]],
-        projected.items[tri.vertices[2]],
-        tri.color
-    );
+const ProjectedPoint = struct {
+    x: f32,
+    y: f32,
+    inv_z: f32,
+
+    pub fn init(point: Vector2, inv_z: f32) ProjectedPoint {
+        return .{
+            .x = point.x,
+            .y = point.y,
+            .inv_z = inv_z,
+        };
+    }
+};
+
+pub fn renderTriangle(canvas: *Canvas, mode: RenderMode, tri: Tri, projected: ArrayList(Vector2)) !void {
+    switch (mode) {
+        .wireframe => try draw.wireFrameTriangle(
+            canvas,
+            projected.items[tri.vertices[0]],
+            projected.items[tri.vertices[1]],
+            projected.items[tri.vertices[2]],
+            tri.color
+        ),
+        .solid => try draw.filledTriangle(
+            canvas,
+            projected.items[tri.vertices[0]],
+            projected.items[tri.vertices[1]],
+            projected.items[tri.vertices[2]],
+            tri.color
+        ),
+    }
 }
 
-pub fn renderModel(arena: std.mem.Allocator, canvas: *Canvas, model: Model) !void {
+pub fn renderModel(arena: std.mem.Allocator, canvas: *Canvas, mode: RenderMode, model: Model) !void {
     var projected: ArrayList(Vector2) = .empty;
 
     for (model.vertices.items) |vertex| {
@@ -51,7 +75,7 @@ pub fn renderModel(arena: std.mem.Allocator, canvas: *Canvas, model: Model) !voi
     }
 
     for (model.triangles.items) |tri| {
-        try renderTriangle(canvas, tri, projected);
+        try renderTriangle(canvas, mode, tri, projected);
     }
 }
 
@@ -175,6 +199,7 @@ pub fn renderScene(scene: *Scene, canvas: *Canvas) !void {
 
     for (scene.objects.items) |object| {
         const clipped = try clipObject(arena, object, m_camera, &constants.frustum_planes) orelse continue;
-        try renderModel(arena, canvas, clipped);
+        try renderModel(arena, canvas, scene.render_mode, clipped);
     }
 }
+

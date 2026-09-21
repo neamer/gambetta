@@ -14,6 +14,11 @@ const Vector2 = rl.Vector2;
 const Matrix = rl.Matrix;
 const Color = rl.Color;
 
+pub const RenderMode = enum {
+    wireframe,
+    solid,
+};
+
 pub const Camera = struct {
     translation: Vector3,
     rotation: Matrix
@@ -22,6 +27,7 @@ pub const Camera = struct {
 pub const Scene = struct {
     objects: ArrayList(Object),
     camera: Camera,
+    render_mode: RenderMode,
 
     pub fn init() Scene {
         return .{
@@ -29,7 +35,8 @@ pub const Scene = struct {
                 .translation = Vector3.init(0, 0, 0),
                 .rotation = Matrix.rotateX(0),
             },
-            .objects = .empty
+            .objects = .empty,
+            .render_mode = .wireframe,
         };
     }
 

@@ -28,6 +28,8 @@ pub fn main() anyerror!void {
         const right_pressed = rl.isKeyDown(.right) or rl.isKeyDown(.d);
         const down_pressed = rl.isKeyDown(.down) or rl.isKeyDown(.s);
         const left_pressed = rl.isKeyDown(.left) or rl.isKeyDown(.a);
+
+        const tab_pressed = rl.isKeyPressed(.tab);
  
         const up_velocity: f32 = if (up_pressed) 1 else 0;
         const right_velocity: f32 = if (right_pressed) 1 else 0;
@@ -38,8 +40,14 @@ pub fn main() anyerror!void {
         const z_velocity: f32 = (up_velocity - down_velocity) * constants.camera_speed * delta;
 
         const camera_transform = rl.Matrix.translate(x_velocity, 0, z_velocity);
-
         scene.camera.translation = scene.camera.translation.transform(camera_transform);
+
+        if (tab_pressed) {
+            scene.render_mode = switch (scene.render_mode) {
+                .solid => .wireframe,
+                .wireframe => .solid,
+            };
+        }
 
         rl.beginDrawing();
         defer rl.endDrawing();

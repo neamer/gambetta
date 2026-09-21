@@ -55,11 +55,11 @@ pub fn filledTriangle(canvas: *Canvas, point0_: Vector2, point1_: Vector2, point
     if (point2.y < point0.y) std.mem.swap(Vector2, &point2, &point0);
     if (point2.y < point1.y) std.mem.swap(Vector2, &point2, &point1);
 
-    var x01 = try math.interpolate(@intFromFloat(point0.y), point0.x, @intFromFloat(point1.y), point1.x);
+    var x01 = try math.interpolate(@round(point0.y), point0.x, @round(point1.y), point1.x);
     defer x01.deinit(allocator);
-    var x12 = try math.interpolate(@intFromFloat(point1.y), point1.x, @intFromFloat(point2.y), point2.x);
+    var x12 = try math.interpolate(@round(point1.y), point1.x, @round(point2.y), point2.x);
     defer x12.deinit(allocator);
-    var x02 = try math.interpolate(@intFromFloat(point0.y), point0.x, @intFromFloat(point2.y), point2.x);
+    var x02 = try math.interpolate(@round(point0.y), point0.x, @round(point2.y), point2.x);
     defer x02.deinit(allocator);
 
     _ = x01.pop();
