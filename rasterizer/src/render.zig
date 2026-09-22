@@ -171,7 +171,36 @@ fn clipModelAgainstPlane(arena: std.mem.Allocator, model: *Model, plane: Plane) 
     model.triangles = clipped;
 }
 
-fn clipObject(
+fn getTriNormal(tri: Tri, vertices: ArrayList(Vector3)) Vector3 {
+    const vertex0 = vertices.items[tri.vertices[0]];
+    const vertex1 = vertices.items[tri.vertices[1]];
+    const vertex2 = vertices.items[tri.vertices[2]];
+
+    const v1 = Vector3.subtract(vertex1, vertex0);
+    const v2 = Vector3.subtract(vertex2, vertex0);
+
+    return Vector3.crossProduct(v1, v2);
+}
+
+fn isBackFacing(tri: Tri, vertices: ArrayList(Vector3)) bool {
+    const vertex0 = vertices.items[tri.vertices[0]];
+    const normal = getTriNormal(tri, vertices);
+
+    return Vector3.dotProduct(normal, vertex0) > 0;
+}
+
+fn cullBackFaces(model: *Model) void {
+    var write: usize = 0;
+    for (model.triangles.items) |tri| {
+        if (isBackFacing(tri, model.vertices)) continue;
+
+        model.triangles.items[write] = tri;
+        write += 1;
+    }
+    model.triangles.shrinkRetainingCapacity(write);
+}
+
+fn visibleModel(
     arena: std.mem.Allocator,
     object: Object,
     camera: Matrix,
@@ -188,6 +217,8 @@ fn clipObject(
     for (model.vertices.items) |*vertex| {
         vertex.* = Vector3.transform(vertex.*, matrix);
     }
+
+    cullBackFaces(&model);
 
     for (planes) |plane| {
         if (plane.signedDistance(bounds.center) > bounds.radius) continue;
@@ -209,8 +240,8 @@ pub fn renderScene(scene: *Scene, canvas: *Canvas) !void {
     @memset(depth_buffer, 0);
 
     for (scene.objects.items) |object| {
-        const clipped = try clipObject(arena, object, m_camera, &constants.frustum_planes) orelse continue;
-        try renderModel(arena, canvas, depth_buffer, scene.render_mode, clipped);
+        const visible = try visibleModel(arena, object, m_camera, &constants.frustum_planes) orelse continue;
+        try renderModel(arena, canvas, depth_buffer, scene.render_mode, visible);
     }
 }
 
