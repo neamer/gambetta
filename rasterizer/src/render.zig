@@ -203,6 +203,7 @@ fn cullBackFaces(model: *Model) void {
 fn visibleModel(
     arena: std.mem.Allocator,
     object: Object,
+    render_mode: RenderMode,
     camera: Matrix,
     planes: []const Plane,
 ) !?Model {
@@ -218,7 +219,9 @@ fn visibleModel(
         vertex.* = Vector3.transform(vertex.*, matrix);
     }
 
-    cullBackFaces(&model);
+    if (render_mode != .wireframe) {
+        cullBackFaces(&model);
+    }
 
     for (planes) |plane| {
         if (plane.signedDistance(bounds.center) > bounds.radius) continue;
@@ -240,7 +243,7 @@ pub fn renderScene(scene: *Scene, canvas: *Canvas) !void {
     @memset(depth_buffer, 0);
 
     for (scene.objects.items) |object| {
-        const visible = try visibleModel(arena, object, m_camera, &constants.frustum_planes) orelse continue;
+        const visible = try visibleModel(arena, object, scene.render_mode, m_camera, &constants.frustum_planes) orelse continue;
         try renderModel(arena, canvas, depth_buffer, scene.render_mode, visible);
     }
 }
