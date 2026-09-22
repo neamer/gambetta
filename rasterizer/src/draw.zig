@@ -10,6 +10,8 @@ const Canvas = @import("canvas.zig").Canvas;
 const Vector3 = rl.Vector3;
 const Vector2 = rl.Vector2;
 const Color = rl.Color;
+const ProjectedPoint = render.ProjectedPoint;
+const ScreenPoint = struct { x: usize, y: usize };
 
 pub fn line(canvas: *Canvas, point0: Vector2, point1: Vector2, color: Color) !void {
     const dx = point1.x - point0.x;
@@ -46,44 +48,94 @@ pub fn wireFrameTriangle(canvas: *Canvas, point0: Vector2, point1: Vector2, poin
     try line(canvas, point2, point0, color);
 }
 
-pub fn filledTriangle(canvas: *Canvas, point0_: Vector2, point1_: Vector2, point2_: Vector2, color: Color) !void {
+fn pixel(point: ScreenPoint) usize {
+    if (point.x < 0 or point.y < 0) return 0;
+
+    return (constants.canvas_height - 1 - point.y) * constants.canvas_width + point.x;
+}
+
+fn screen(x: i32, y: i32) ScreenPoint {
+    return .{
+        .x = @intCast(std.math.clamp(constants.canvas_width / 2 + x, 0, constants.canvas_width - 1)),
+        .y = @intCast(std.math.clamp(constants.canvas_height / 2 + y, 0, constants.canvas_height - 1)),
+    };
+}
+
+pub fn filledTriangle(
+    canvas: *Canvas,
+    depth_buffer: []f32,
+    point0_: ProjectedPoint,
+    point1_: ProjectedPoint,
+    point2_: ProjectedPoint,
+    color: Color) !void {
+
     var point0 = point0_;
     var point1 = point1_;
     var point2 = point2_;
 
-    if (point1.y < point0.y) std.mem.swap(Vector2, &point1, &point0);
-    if (point2.y < point0.y) std.mem.swap(Vector2, &point2, &point0);
-    if (point2.y < point1.y) std.mem.swap(Vector2, &point2, &point1);
+    if (point1.point.y < point0.point.y) std.mem.swap(ProjectedPoint, &point1, &point0);
+    if (point2.point.y < point0.point.y) std.mem.swap(ProjectedPoint, &point2, &point0);
+    if (point2.point.y < point1.point.y) std.mem.swap(ProjectedPoint, &point2, &point1);
 
-    var x01 = try math.interpolate(@round(point0.y), point0.x, @round(point1.y), point1.x);
+    var x01 = try math.interpolate(@round(point0.point.y), point0.point.x, @round(point1.point.y), point1.point.x);
     defer x01.deinit(allocator);
-    var x12 = try math.interpolate(@round(point1.y), point1.x, @round(point2.y), point2.x);
+    var z01 = try math.interpolate(@round(point0.point.y), point0.inv_z, @round(point1.point.y), point1.inv_z);
+    defer z01.deinit(allocator);
+
+    var x12 = try math.interpolate(@round(point1.point.y), point1.point.x, @round(point2.point.y), point2.point.x);
     defer x12.deinit(allocator);
-    var x02 = try math.interpolate(@round(point0.y), point0.x, @round(point2.y), point2.x);
+    var z12 = try math.interpolate(@round(point1.point.y), point1.inv_z, @round(point2.point.y), point2.inv_z);
+    defer z12.deinit(allocator);
+
+    var x02 = try math.interpolate(@round(point0.point.y), point0.point.x, @round(point2.point.y), point2.point.x);
     defer x02.deinit(allocator);
+    var z02 = try math.interpolate(@round(point0.point.y), point0.inv_z, @round(point2.point.y), point2.inv_z);
+    defer z02.deinit(allocator);
 
     _ = x01.pop();
     try x01.appendSlice(allocator, x12.items);
+    _ = z01.pop();
+    try z01.appendSlice(allocator, z12.items);
 
     var x_left: std.ArrayList(f32) = undefined;
     var x_right: std.ArrayList(f32) = undefined;
+
+    var z_left: std.ArrayList(f32) = undefined;
+    var z_right: std.ArrayList(f32) = undefined;
 
     const middle = x02.items.len / 2;
     if (x02.items[middle] < x01.items[middle]) {
         x_left = x02;
         x_right = x01;
+
+        z_left = z02;
+        z_right = z01;
     } else {
         x_left = x01;
         x_right = x02;
+
+        z_left = z01;
+        z_right = z02;
     }
 
-    var y: f32 = @round(point0.y);
-    while (y <= point2.y): (y += 1) {
-        const y_diff: usize = @round(y - point0.y);
+    var y: f32 = @round(point0.point.y);
+    while (y <= point2.point.y): (y += 1) {
+        const y_diff: usize = @round(y - point0.point.y);
+
+        const x_l = x_left.items[y_diff];
+        const x_r = x_right.items[y_diff];
+
+        var z_segment = try math.interpolate(@round(x_l), z_left.items[y_diff], @round(x_r), z_right.items[y_diff]);
+        defer z_segment.clearAndFree(allocator);
 
         var x = x_left.items[y_diff];
         while (x <= x_right.items[y_diff]): (x += 1) {
-            canvas.putPixel(@round(x), @round(y), color);
+            const z = z_segment.items[@round(x - x_l)];
+
+            if (z > depth_buffer[pixel(screen(@round(x), @round(y)))]) {
+                canvas.putPixel(@round(x), @round(y), color);
+                depth_buffer[pixel(screen(@round(x), @round(y)))] = z;
+            }
         }
     }
 }

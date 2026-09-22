@@ -20,6 +20,18 @@ const Vector3 = rl.Vector3;
 const Matrix = rl.Matrix;
 const Color = rl.Color;
 
+pub const ProjectedPoint = struct {
+    point: Vector2,
+    inv_z: f32,
+
+    pub fn init(point: Vector2, inv_z: f32) ProjectedPoint {
+        return .{
+            .point = point,
+            .inv_z = inv_z,
+        };
+    }
+};
+
 fn viewportToCanvas(pos: Vector2) Vector2 {
     return .{
         .x = pos.x * constants.canvas_width / constants.viewport_width,
@@ -34,31 +46,28 @@ pub fn project(pos: Vector3) Vector2 {
     });
 }
 
-const ProjectedPoint = struct {
-    x: f32,
-    y: f32,
-    inv_z: f32,
+pub fn projectWithDepth(pos: Vector3) ProjectedPoint {
+    return .{
+        .point = viewportToCanvas(.{
+            .x = pos.x * constants.viewport_distance / pos.z,
+            .y = pos.y * constants.viewport_distance / pos.z,
+        }),
+        .inv_z = 1 / pos.z,
+    };
+}
 
-    pub fn init(point: Vector2, inv_z: f32) ProjectedPoint {
-        return .{
-            .x = point.x,
-            .y = point.y,
-            .inv_z = inv_z,
-        };
-    }
-};
-
-pub fn renderTriangle(canvas: *Canvas, mode: RenderMode, tri: Tri, projected: ArrayList(Vector2)) !void {
+pub fn renderTriangle(canvas: *Canvas, depth_buffer: []f32, mode: RenderMode, tri: Tri, projected: ArrayList(ProjectedPoint)) !void {
     switch (mode) {
         .wireframe => try draw.wireFrameTriangle(
             canvas,
-            projected.items[tri.vertices[0]],
-            projected.items[tri.vertices[1]],
-            projected.items[tri.vertices[2]],
+            projected.items[tri.vertices[0]].point,
+            projected.items[tri.vertices[1]].point,
+            projected.items[tri.vertices[2]].point,
             tri.color
         ),
         .solid => try draw.filledTriangle(
             canvas,
+            depth_buffer,
             projected.items[tri.vertices[0]],
             projected.items[tri.vertices[1]],
             projected.items[tri.vertices[2]],
@@ -67,15 +76,15 @@ pub fn renderTriangle(canvas: *Canvas, mode: RenderMode, tri: Tri, projected: Ar
     }
 }
 
-pub fn renderModel(arena: std.mem.Allocator, canvas: *Canvas, mode: RenderMode, model: Model) !void {
-    var projected: ArrayList(Vector2) = .empty;
+pub fn renderModel(arena: std.mem.Allocator, canvas: *Canvas, depth_buffer: []f32, mode: RenderMode, model: Model) !void {
+    var projected: ArrayList(ProjectedPoint) = .empty;
 
     for (model.vertices.items) |vertex| {
-        try projected.append(arena, project(vertex));
+        try projected.append(arena, projectWithDepth(vertex));
     }
 
     for (model.triangles.items) |tri| {
-        try renderTriangle(canvas, mode, tri, projected);
+        try renderTriangle(canvas, depth_buffer, mode, tri, projected);
     }
 }
 
@@ -196,10 +205,12 @@ pub fn renderScene(scene: *Scene, canvas: *Canvas) !void {
     const arena = frame_arena.allocator();
 
     const m_camera = cameraMatrix(scene.camera);
+    const depth_buffer = try arena.alloc(f32, constants.canvas_width * constants.canvas_height);
+    @memset(depth_buffer, 0);
 
     for (scene.objects.items) |object| {
         const clipped = try clipObject(arena, object, m_camera, &constants.frustum_planes) orelse continue;
-        try renderModel(arena, canvas, scene.render_mode, clipped);
+        try renderModel(arena, canvas, depth_buffer, scene.render_mode, clipped);
     }
 }
 
